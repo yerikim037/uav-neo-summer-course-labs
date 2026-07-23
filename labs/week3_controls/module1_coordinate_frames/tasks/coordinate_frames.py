@@ -21,6 +21,7 @@ def euler_to_rot(roll, pitch, yaw):
     """
     ##################################
     #### START PUT CODE HERE #########
+    
     R = np.eye(3)
     ###### END PUT CODE HERE #########
     ##################################
