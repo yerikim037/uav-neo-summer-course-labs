@@ -45,7 +45,7 @@ def pid_control(err, err_int, err_dot, kp, ki, kd):
     """Return the PID controller output from the three gain terms (see README, Key terms)."""
     ##################################
     #### START PUT CODE HERE #########
-    output = 0.0
+    output = kp * err + ki * err_int + kd * err_dot
     ###### END PUT CODE HERE #########
     ##################################
     return output
@@ -66,14 +66,26 @@ def update(drone):
         return True
     ##################################
     #### START PUT CODE HERE #########
-
+    dt = drone.get_delta_time()
+    vel = drone.physics.get_linear_velocity()
+    forward_vel = vel[0]  # x-axis is forward
+    _pos += forward_vel * dt
+    _t += dt
+    error = TARGET_DIST - _pos
+    _err_int += error * dt
+    error_dot = (error - _prev_err) / dt if dt > 0 else 0.0
+    _prev_err = error
+    pitch = uav_utils.clamp(pid_control(error, _err_int, error_dot, KP, KI, KD), -PITCH_LIMIT, PITCH_LIMIT)
+    current_height = neo_lab.height(drone)
+    height_error = TARGET_HEIGHT - current_height
+    throttle = uav_utils.clamp(ALT_KP * height_error, -THROTTLE_LIMIT, THROTTLE_LIMIT)
+    drone.flight.send_pcmd(pitch, 0, 0, throttle)   
     # There is no direct (x, z) readout, so estimate forward distance by dead reckoning:
     # integrate the forward component of drone.physics.get_linear_velocity() over time.
     # PID that distance to TARGET_DIST for the pitch command (clamped to PITCH_LIMIT), and
     # use a proportional term (ALT_KP) on height to hold TARGET_HEIGHT. Count as arrived
     # only after MIN_TRAVEL, once speed drops below SETTLE_SPEED for HOLD_TIME. See the
     # README (Key terms) for dead reckoning and the PID law.
-
     ###### END PUT CODE HERE #########
     ##################################
     return _done

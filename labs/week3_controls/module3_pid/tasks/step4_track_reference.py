@@ -60,7 +60,7 @@ def pid_control(err, err_int, err_dot, kp, ki, kd):
     """Return the PID controller output from the three gain terms (see README, Key terms)."""
     ##################################
     #### START PUT CODE HERE #########
-    output = 0.0
+    output = kp * err + ki * err_int + kd * err_dot
     ###### END PUT CODE HERE #########
     ##################################
     return output
@@ -84,7 +84,18 @@ def update(drone):
     r, r_dot = reference(_t)
     ##################################
     #### START PUT CODE HERE #########
-
+    height = neo_lab.height(drone)
+    error = r - height
+    _err_int += error * dt
+    _err_int = max(min(_err_int, INT_CLAMP), -INT_CLAMP) 
+    err_dot = (error - _prev_err) / dt
+    _prev_err = error
+    feedback = pid_control(error, _err_int, err_dot, KP, KI, KD)
+    feedforward = KFF * r_dot
+    throttle = feedback + feedforward
+    throttle = max(min(throttle, THROTTLE_LIMIT), -THROTTLE_LIMIT)
+    drone.flight.set_throttle(throttle)
+    _max_err = max(_max_err, abs(error))    
     # GOAL: keep the drone ON the moving target r from reference(_t), not behind it.
     #
     # Run PID on the height error (r - neo_lab.height(drone)) exactly as in Step 1:

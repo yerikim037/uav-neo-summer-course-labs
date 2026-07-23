@@ -44,7 +44,7 @@ def pid_control(err, err_int, err_dot, kp, ki, kd):
     """Return the PID controller output from the three gain terms (see README, Key terms)."""
     ##################################
     #### START PUT CODE HERE #########
-    output = 0.0
+    output = kp * err + ki * err_int + kd * err_dot
     ###### END PUT CODE HERE #########
     ##################################
     return output
@@ -64,7 +64,24 @@ def update(drone):
         return True
     ##################################
     #### START PUT CODE HERE #########
-
+    dt = drone.get_delta_time()
+    image = drone.camera.get_color_image()
+    gate = neo_lab.detect_gate(image)
+    if gate is not None:
+        _search_t = 0.0
+        err = (gate.cx - COL_CENTER) / COL_CENTER
+        _err_int += err * dt
+        err_dot = (err - _prev_err) / dt if dt > 0 else 0.0
+        yaw_cmd = pid_control(err, _err_int, err_dot, KP, KI, KD)
+        yaw_cmd = uav_utils.clamp(yaw_cmd, -MAX_YAW, MAX_YAW)
+        drone.set_yaw(yaw_cmd)
+        if abs(err) < CENTER_TOL:
+            _hold += dt
+            if _hold >= HOLD_TIME:
+                _done = True
+        else:
+            _hold = 0.0
+        _prev_err = err
     # GOAL: yaw with a PID loop so a gate stays centered in the forward camera;
     # finish once it is centered (abs(error) < CENTER_TOL) for HOLD_TIME.
     #
